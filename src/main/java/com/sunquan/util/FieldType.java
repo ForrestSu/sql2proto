@@ -31,6 +31,6 @@ public enum FieldType {
 		for (FieldType t : FieldType.values()) {
 			if (t.id == itype) return t;
 		}
-		return null;
+		return UNKNOWN;
 	}
 }

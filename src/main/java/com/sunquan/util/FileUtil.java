@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class FileUtil {
 
@@ -37,13 +38,13 @@ public class FileUtil {
 
 	/**
 	 * 获取结构体的名字
-	 * 
-	 * @param file
-	 *            想要读取的文件对象
-	 * @return 返回文件内容
+	 * @param cfg-file
+	 *        想要读取的文件对象
+	 * @return 
+	 *        Map<ProtoMsg, sqlfile> 返回文件内容
 	 */
 	public static Map<String, String> LoadStructName(String sfile) {
-		Map<String, String> params = new HashMap<String, String>();
+		Map<String, String> params = new TreeMap<String, String>();
 		try {
 			InputStreamReader istream = new InputStreamReader(new FileInputStream(sfile), "utf-8");
 			BufferedReader read = new BufferedReader(istream);// 构造一个BufferedReader类来读取文件
@@ -53,16 +54,18 @@ public class FileUtil {
 			while ((sline = read.readLine()) != null) {
 				++lineno;
 				sline = sline.trim();
-				if (sline.length() > 5) {
+				if ((!sline.startsWith("#")) && sline.length() > 5) {
 					String[] arr = sline.split("[|]");
-					if (arr.length >= 3) {
+					if (arr.length > 3) {
 						// 放入map
-						String file_name= arr[2] + ".sql";
-						String msg_name = arr[1];
+						String file_name= arr[3] + ".sql";
+						String msg_name = arr[2];
 						int ipos = msg_name.lastIndexOf('.');
 					    if(ipos>=0) 
 					    	msg_name = msg_name.substring(ipos+1,msg_name.length());
-						params.put(file_name, msg_name);
+						if (msg_name.length() > 0) {
+							params.put(msg_name, file_name);
+						}
 					} else
 						System.err.println("typemap.cfg error at line: " + lineno);
 				}
@@ -109,7 +112,7 @@ public class FileUtil {
 						} else
 							params.put(arr[0], arr[1]);
 					} else
-						System.err.println("typemap.cfg error at line: " + lineno);
+						System.err.println("["+ sfile +"] error at line: " + lineno);
 				} else
 					System.err.println("format error at line: " + lineno);
 			}

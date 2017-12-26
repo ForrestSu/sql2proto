@@ -13,43 +13,41 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
 
+import com.sunquan.util.DateUtils;
 import com.sunquan.util.FieldType;
 import com.sunquan.util.FileUtil;
 import com.sunquan.util.ParserSqlUtil;
 import com.sunquan.util.ProtoUtil;
 
-
 public class GenProtosOracle {
 
 	// 定义连接所需的字符串
 	private static String USERNAMR = "user";
-	private static String PASSWORD = "123456";
+	private static String PASSWORD = "12345";
 	private static String DRVIER = "oracle.jdbc.OracleDriver";
-	private static String URL = "jdbc:oracle:thin:@10.0.0.1:1521:s"; // std是数据库名
+	private static String URL = "jdbc:oracle:thin:@10.0.1.1:1521:std"; // std是数据库名
 
 	private static String ProtoMsgBegin = System.lineSeparator() + "{";
 	private static String ProtoMsgEnd = System.lineSeparator() + "}" + System.lineSeparator();
-	private static String ProtoHeader = "import public \"typedef.proto\";\r\n"
-			+ "import public \"msgcarrier.proto\";\r\n\r\n" + "package ST.SQLSTRUCT;\r\n\r\n"
+	private static String ProtoHeader = "import public \"typedef.proto\";\r\n" 
+			+ "import public \"msgcarrier.proto\";\r\n\r\n" 
+			+ "package ST.SQLSTRUCT;\r\n\r\n"
 			+ "/** prefix 根据字段名来判断类型：\r\n" 
-			+ "*    b### bool \r\n" 
-			+ "*    i### int32 \r\n" 
-			+ "*    u### uint32\r\n"
-			+ "*    l### int64 \r\n" 
-			+ "*    d### double\r\n" 
-			+ "*    f### double\r\n" 
+			+ "*    b### bool \r\n" + "*    i### int32 \r\n" 
+			+ "*    u### uint32\r\n" + "*    l### int64 \r\n" 
+			+ "*    d### double\r\n" + "*    f### double\r\n" 
 			+ "*    s### string\r\n" + "*/\r\n";
-	
-	private static Map<String, String> MapComments;
-	private static Map<String, String> ProtoName; // <文件名,MsgName>
+
+	private static Map<String, String> MapProtoMsgs; // <MsgName,文件名>
+	private static Map<String, String> MapComments; // <大写字段名, 注释>
 
 	// 创建一个数据库连接
 	private Connection connection = null;
 	private PreparedStatement pstm = null;
 
 	public GenProtosOracle(String protoname_file) {
-		ProtoName = FileUtil.LoadStructName(protoname_file);
-		System.out.println(">Load ProtoName count is " + ProtoName.size());
+		MapProtoMsgs = FileUtil.LoadStructName(protoname_file);
+		System.out.println(">Load Protos count is " + MapProtoMsgs.size());
 		MapComments = FileUtil.LoadComments("dicts/comments.csv");
 		System.out.println(">Load Comments count is " + MapComments.size());
 	}
@@ -81,40 +79,28 @@ public class GenProtosOracle {
 			e.printStackTrace();
 		}
 
-		int icount = 0;
-		String[] list = dir.list();
-
-		String sqlstr = "";
-		for (String s : list) {
-			// System.out.println(s);
-			File fileitem = new File(dir.getPath() + File.separator + s);
-			String file_name = fileitem.getName();
-			// 如果是 sql 文件
-			if (fileitem.isFile() && file_name.toLowerCase().endsWith(".sql")) {
-
-				// 读取SQL文件
-				sqlstr = FileUtil.ReadFile2Str(fileitem.getAbsolutePath());
-
-				// 生成proto文件
-				String proto = ParseSql2Proto(sqlstr);
-				// typemap.cfg中与映射，文件名和消息名称。 通过文件名可以查找到proto的名称
-				String msg_name = ProtoName.get(file_name);
-				if (msg_name == null) {
-					msg_name = file_name;
-					System.err.println("Can't find proto msg name!");
-				}
-				
+		int iCount = 0;
+		for (Map.Entry<String, String> entry : MapProtoMsgs.entrySet()) {
+			String protoMsgName = entry.getKey();
+			String sqlFileName = entry.getValue();
+			File sqlfile = new File(dir.getPath() + File.separator + sqlFileName);
+			if (sqlfile.exists() && sqlfile.isFile()) {
+				// 读取 sql 文件
+				String sqlstr = FileUtil.ReadFile2Str(sqlfile.getAbsolutePath()); 
+				// 执行 sql 生成proto文件
+				String proto = ParseSql2Proto(sqlstr); 
 				try {
-					buffwriter.write(System.lineSeparator() + "message " + msg_name);
+					buffwriter.write(System.lineSeparator() + "message " + protoMsgName);
 					buffwriter.write(proto);
 					buffwriter.flush();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-				++icount;
+				++iCount;
+			} else {
+				System.err.println("sqlfile not exists! ==>" + sqlFileName);
 			}
 		}
-
 		// 最后关掉输出流
 		try {
 			if (buffwriter != null)
@@ -126,7 +112,7 @@ public class GenProtosOracle {
 		}
 		// 释放数据库连接
 		Release();
-		return icount;
+		return iCount;
 	}
 
 	private String GetComment(Map<String, String> fileds, String field_name) {
@@ -143,7 +129,9 @@ public class GenProtosOracle {
 	 * 使用ResultSetMetaData获取列的类型
 	 */
 	private String ParseSql2Proto(String sql) {
-		// sql = sql.replace("$证券代码$", "000001");
+
+		sql = sql.replace("$交易日期$", DateUtils.CurDateStr());
+		sql = sql.replace("$查询日期$", DateUtils.CurDateStr());
 		// System.out.println(sql);
 		Map<String, String> filed_pairs = ParserSqlUtil.AnalysisSql(sql);
 		StringBuilder result = new StringBuilder();
@@ -161,15 +149,14 @@ public class GenProtosOracle {
 				String field_name = rsmd.getColumnLabel(i).toLowerCase();
 				int file_type = rsmd.getColumnType(i);
 				FieldType fieldtp = ProtoUtil.Convert2ProtoType(file_type, field_name);
-				if (null != fieldtp) {
+				if (fieldtp != null) {
 					result.append(System.lineSeparator()).append("\toptional ").append(fieldtp).append(" ")
 							.append(field_name).append(" = ").append(field_cnt++).append(";")
 							.append(GetComment(filed_pairs, field_name));
 				}
 				/*
-				 * System.out.println( "i==" + i + "\t typeid=" +
-				 * rsmd.getColumnType(i) + "\t type=" +
-				 * rsmd.getColumnTypeName(i));
+				 * System.out.println( "i==" + i + "\t typeid=" + rsmd.getColumnType(i) +
+				 * "\t type=" + rsmd.getColumnTypeName(i));
 				 */
 			}
 			result.append(ProtoMsgEnd);
@@ -229,7 +216,7 @@ public class GenProtosOracle {
 			}
 		}
 	}
-	
+
 	/**
 	 * 查询数据
 	 */
@@ -243,7 +230,6 @@ public class GenProtosOracle {
 			rs = pstm.executeQuery();
 			while (rs.next()) {
 				String id = rs.getString("cnt");
-
 				System.out.println("cnt==" + id);
 			}
 		} catch (SQLException e) {
