@@ -5,8 +5,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 public class FileUtil {
 
@@ -43,13 +44,14 @@ public class FileUtil {
 	 * @return 
 	 *        Map<ProtoMsg, sqlfile> 返回文件内容
 	 */
-	public static Map<String, String> LoadStructName(String sfile) {
-		Map<String, String> params = new TreeMap<String, String>();
+	public static List<String[]> LoadStructName(String sfile) {
+		List<String[]> params = new LinkedList<String[]>();
 		try {
 			InputStreamReader istream = new InputStreamReader(new FileInputStream(sfile), "utf-8");
 			BufferedReader read = new BufferedReader(istream);// 构造一个BufferedReader类来读取文件
 			String sline = "";
 			int lineno = 0;
+		
 			// 使用readLine方法，一次读一行
 			while ((sline = read.readLine()) != null) {
 				++lineno;
@@ -64,7 +66,7 @@ public class FileUtil {
 					    if(ipos>=0) 
 					    	msg_name = msg_name.substring(ipos+1,msg_name.length());
 						if (msg_name.length() > 0) {
-							params.put(msg_name, file_name);
+							params.add(new String[]{msg_name, file_name});
 						}
 					} else
 						System.err.println("typemap.cfg error at line: " + lineno);

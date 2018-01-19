@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -38,7 +39,7 @@ public class GenProtosOracle {
 			+ "*    d### double\r\n" + "*    f### double\r\n" 
 			+ "*    s### string\r\n" + "*/\r\n";
 
-	private static Map<String, String> MapProtoMsgs; // <MsgName,文件名>
+	private static List<String[]> MapProtoMsgs; // [MsgName,文件名]
 	private static Map<String, String> MapComments; // <大写字段名, 注释>
 
 	// 创建一个数据库连接
@@ -80,9 +81,9 @@ public class GenProtosOracle {
 		}
 
 		int iCount = 0;
-		for (Map.Entry<String, String> entry : MapProtoMsgs.entrySet()) {
-			String protoMsgName = entry.getKey();
-			String sqlFileName = entry.getValue();
+		for (String[] entry : MapProtoMsgs) {
+			String protoMsgName = entry[0];
+			String sqlFileName = entry[1];
 			File sqlfile = new File(dir.getPath() + File.separator + sqlFileName);
 			if (sqlfile.exists() && sqlfile.isFile()) {
 				// 读取 sql 文件
