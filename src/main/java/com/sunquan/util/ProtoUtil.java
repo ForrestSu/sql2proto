@@ -3,7 +3,7 @@ package com.sunquan.util;
 public class ProtoUtil{
     /**
      * 将Oracle类型转为 protobuf的类型
-     * 
+     *
      * @param itype
      * @param prefix
      *            prefix 根据字段名的开头开判断：<br/>

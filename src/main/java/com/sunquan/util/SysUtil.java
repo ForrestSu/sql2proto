@@ -23,7 +23,7 @@ public class SysUtil {
                 sbuff.append(line).append(System.lineSeparator());
             }
             System.out.print(sbuff.toString());
-            
+
             //error output
             sbuff.delete(0, sbuff.length());
             while ((line = brerr.readLine()) != null) {
